@@ -1,5 +1,4 @@
-# app/core/config.py
-from pydantic_settings import BaseSettings 
+from pydantic_settings import BaseSettings
 from pathlib import Path
 
 class Settings(BaseSettings):
@@ -10,12 +9,13 @@ class Settings(BaseSettings):
     TARGET_HEIGHT: int = 1920
     TARGET_WIDTH: int = 1080
     FPS: int = 30
+    OPENAI_API_KEY: str = ""  
 
     class Config:
         env_file = ".env"
+        extra = "allow"  # permette variabili extra nell'env
 
 settings = Settings()
 
-# crea cartelle input/output
 Path(settings.STORAGE_DIR, "input").mkdir(parents=True, exist_ok=True)
 Path(settings.STORAGE_DIR, "output").mkdir(parents=True, exist_ok=True)
