@@ -1,0 +1,46 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.sqlite3
+*.db
+
+# --- Virtual env ---
+.venv/
+env/
+venv/
+
+# --- Video data & output ---
+data/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.mp3
+
+# --- FastAPI / Uvicorn ---
+*.pid
+
+# --- OS & Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Docker ---
+*.pid
+*.bak
+*.swp
+
+# --- Env files ---
+.env
+.env.*
+!.env.example
+
+# --- Temporary ---
+tmp/
+temp/
+logs/
