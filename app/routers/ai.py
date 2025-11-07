@@ -1,7 +1,7 @@
 # app/routers/ai.py
 from fastapi import APIRouter
 from app.services.caption_generator import generate_placeholder_caption
-from app.services.ai_editor import generate_edit_plan
+from app.services.ai_editor_local import generate_edit_plan
 from app.services.speech_to_text import transcribe_audio
 
 router = APIRouter(prefix="/ai", tags=["ai"])
