@@ -87,12 +87,12 @@ def apply_edit_plan(video_path: str, plan: dict, output_path: str = None) -> str
 
     clip.write_videofile(
         output_path,
-        codec="libx264",
+        codec="h264_nvenc",   # usa encoder GPU NVIDIA
         audio_codec="aac",
         fps=clip.fps,
         verbose=False,
         logger=None
     )
-
+    
     clip.close()
     return output_path

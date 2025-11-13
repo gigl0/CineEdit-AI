@@ -3,6 +3,7 @@
 import os
 import subprocess
 import whisper
+import torch
 
 def extract_audio(video_path: str) -> str:
     """
@@ -23,18 +24,16 @@ def extract_audio(video_path: str) -> str:
 
 
 
+import whisper
+
 def transcribe_audio(video_path: str) -> str:
     """
-    Trascrive l'audio di un video locale usando Whisper in esecuzione locale.
+    Trascrive l'audio del video usando Whisper GPU (se disponibile)
     """
-    # 1. Estrai l'audio in WAV
-    audio_path = extract_audio(video_path)
+    import torch
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # 2. Carica il modello Whisper locale
-    model = whisper.load_model("medium")  # opzioni: "tiny", "base", "small", "medium", "large"
-
-    # 3. Trascrivi
-    result = model.transcribe(audio_path, language="en", task="transcribe")
-
-    # 4. Ritorna solo il testo
+    model = whisper.load_model("base", device=device)
+    result = model.transcribe(video_path)
     return result["text"]
+
