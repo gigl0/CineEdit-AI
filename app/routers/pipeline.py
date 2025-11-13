@@ -9,6 +9,7 @@ import asyncio
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
+
 @router.post("/full")
 async def full_pipeline(data: dict):
     """
@@ -20,25 +21,27 @@ async def full_pipeline(data: dict):
 
     loop = asyncio.get_event_loop()
 
-    # Step 1 - Trascrizione (bloccante)
+    # Step 1 - Trascrizione
     print("[1] Inizio trascrizione")
     transcript = await loop.run_in_executor(None, transcribe_audio, video_path)
     print("[2] Fine trascrizione")
 
+    # Step 2 - Generazione piano AI
     print("[3] Inizio generazione piano di montaggio")
-    # Step 2 - Piano AI (bloccante)
+
     plan = await loop.run_in_executor(
         None,
-        generate_edit_plan,
-        print("[4] Fine generazione piano di montaggio"),
-        f"Analizza e monta il video '{video_path}'",
-        transcript
+        lambda: generate_edit_plan(
+            f"Analizza e monta il video '{video_path}'",
+            transcript
+        )
     )
-    
 
+    print("[4] Fine generazione piano di montaggio")
+
+    # Step 3 - Editing video
     print("[5] Inizio applicazione piano di montaggio")
 
-    # Step 3 - Editing (bloccante, eseguito nel threadpool)
     output_path = await loop.run_in_executor(
         None,
         lambda: apply_edit_plan(video_path, plan)
