@@ -1,68 +1,97 @@
 import subprocess
 import json
 import re
+from typing import Dict, Any
 
 
-def clean_ollama_output(raw: str) -> str:
+def extract_json_block(raw: str) -> str:
     """
-    Pulisce l'output del modello rimuovendo testo extra
-    e lasciando solo il blocco JSON valido.
+    Estrae il primo blocco JSON valido da un output LLM.
+    Gestisce casi con testo prima e dopo.
     """
-    # Cerca un blocco JSON in mezzo al testo
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    # Cerca un blocco {...}
+    match = re.search(r"\{(?:.|\n)*\}", raw)
     if match:
         return match.group(0)
     return raw.strip()
 
 
+def validate_plan(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Garantisce che il piano di editing contenga tutte le chiavi richieste.
+    Inserisce fallback sicuri.
+    """
+    return {
+        "mood": plan.get("mood", "cinematic"),
+        "music": plan.get("music", "ambient piano"),
+        "caption": plan.get("caption", "Generated with CineEdit-AI"),
+        "fx": plan.get("fx", ["fade_in"]),
+        "color": plan.get("color", "soft warm")
+    }
+
+
 def generate_edit_plan(scene_description: str, transcript: str | None = None) -> dict:
     """
-    Genera un piano di montaggio creativo usando Ollama in locale.
-    Funzione completamente standalone, compatibile con run_in_executor.
+    Genera un piano di montaggio professionale usando Ollama in locale.
+    Compatibile con run_in_executor.
     """
 
     prompt = f"""
-Sei un video editor cinematografico che crea short emozionali per social.
-Analizza la scena e genera un piano di montaggio creativo.
+You are a senior cinematic video editor.
+Your task is to generate a professional editing plan for a short emotional video.
 
-Scena: {scene_description}
-Trascrizione: {transcript or "Nessuna trascrizione"}
+=============================
+SCENE DESCRIPTION
+=============================
+{scene_description}
 
-Fornisci l'output **solo** in formato JSON valido, esempio:
+=============================
+TRANSCRIPT
+=============================
+{transcript or "No transcript available"}
+
+=============================
+REQUIRED OUTPUT FORMAT
+=============================
+
+Return **ONLY** a JSON object with these exact keys:
 
 {{
-  "mood": "ispirazionale",
-  "music": "ambient piano",
-  "caption": "testo breve",
-  "fx": ["zoom_in", "fade_in"],
-  "color": "soft warm"
+    "mood": "string describing the emotional tone",
+    "music": "suggested genre and rhythm",
+    "caption": "short overlay text",
+    "fx": ["zoom_in", "color_boost", "fade_in"],
+    "color": "cinematic color tone"
 }}
 
-NON aggiungere testo prima o dopo il JSON.
-    """
+DO NOT add explanations.
+DO NOT include markdown.
+Output pure JSON.
+"""
 
     try:
-        # Esegui Ollama
         result = subprocess.run(
-            ["ollama", "run", "llama3", prompt],
+            ["ollama", "run", "llama3:70b", prompt],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
+
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": f"Ollama execution failed: {e}"}
 
     raw_output = result.stdout.strip()
 
-    # Pulisci eventuale testo extra
-    cleaned = clean_ollama_output(raw_output)
+    # Pulisci l'output
+    cleaned = extract_json_block(raw_output)
 
-    # Prova ad interpretare come JSON
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned)
+        return validate_plan(parsed)
+
     except Exception:
         return {
-            "error": "invalid JSON",
+            "error": "Failed to parse JSON",
             "raw_output": raw_output,
             "cleaned": cleaned
         }
