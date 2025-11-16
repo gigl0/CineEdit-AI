@@ -117,7 +117,7 @@ def apply_edit_plan(video_path: str, plan: dict, output_path: str = None) -> str
             clip = CompositeVideoClip([clip, txt_clip])
 
         except Exception as e:
-            print(f"[x] Errore caption: {e}")
+            print(f"Errore creazione caption con Pillow: {e}")
 
     # ============================================================
     # 5) Esportazione video (GPU NVENC)
