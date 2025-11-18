@@ -44,6 +44,7 @@ Thumbs.db
 tmp/
 temp/
 logs/
+*.log
 
 # React build output
 frontend/dist/

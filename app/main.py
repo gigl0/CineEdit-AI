@@ -1,14 +1,11 @@
 from fastapi import FastAPI
 from app.routers.video import router as video_router
 from app.routers.ai import router as ai_router
-from app.services.ai_editor_local import generate_edit_plan
-from fastapi.middleware.cors import CORSMiddleware
 from app.routers.pipeline import router as pipeline_router
-import sys
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from app.core.config import settings
 import os
-
-# Assicura che il progetto riconosca i moduli interni
-sys.path.append(os.path.dirname(__file__))
 
 app = FastAPI(
     title="CineEdit-AI",
@@ -16,20 +13,25 @@ app = FastAPI(
     description="Backend per generare e applicare piani di montaggio AI"
 )
 
-# Configurazione CORS
+# CORS Middleware per permettere le richieste dal frontend React
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],  # Sostituisci con l'URL del tuo frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Includi i router principali
+# Montiamo le cartelle di output per servire i video generati
+output_dir = os.path.join(settings.STORAGE_DIR, "output")
+os.makedirs(output_dir, exist_ok=True)
+app.mount("/output", StaticFiles(directory=output_dir), name="output")
+
+
 app.include_router(video_router)
 app.include_router(ai_router)
 app.include_router(pipeline_router)
 
 @app.get("/")
-def root():
-    return {"ok": True, "service": "cineedit-backend"}
+def read_root():
+    return {"message": "Benvenuto in CineEdit-AI"}
