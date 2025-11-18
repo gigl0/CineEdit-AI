@@ -1,10 +1,11 @@
+// src/types.ts
+
 export interface EditPlan {
   mood: string;
   music: string;
   caption: string;
   fx: string[];
   color: string;
-  error?: string;
 }
 
 export interface PipelineResult {
@@ -12,5 +13,5 @@ export interface PipelineResult {
   video_path: string;
   transcript: string;
   plan: EditPlan;
-  output_video: string;
+  output_video: string; // Questo sarà un percorso relativo, es: /output/video.mp4
 }
