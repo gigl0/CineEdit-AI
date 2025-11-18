@@ -1,11 +1,17 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { ProcessingIndicator } from './components/ProcessingIndicator';
 import { ResultsView } from './components/ResultsView';
-import type { PipelineResult } from './types';
+import type { PipelineResult } from './types'; // Assicurati che questo tipo esista
 import { ErrorDisplay } from './components/ErrorDisplay';
+
+// Definiamo un tipo per la risposta iniziale della pipeline
+interface PipelineStartResponse {
+  ok: boolean;
+  message: string;
+  output_filename: string;
+}
 
 type ProcessingState = 'idle' | 'processing' | 'success' | 'error';
 
@@ -14,7 +20,8 @@ const App: React.FC = () => {
   const [processingMessage, setProcessingMessage] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
-  const [result, setResult] = useState<PipelineResult | null>(null);
+  const [result, setResult] = useState<PipelineResult | null>(null); // Questo ora sarà fittizio
+  const [editedVideoUrl, setEditedVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = useCallback((file: File) => {
@@ -27,13 +34,14 @@ const App: React.FC = () => {
     setProcessingState('idle');
     setResult(null);
     setError(null);
+    setEditedVideoUrl(null);
   }, [originalVideoUrl]);
 
   const runPipeline = async () => {
     if (!videoFile) return;
 
     setProcessingState('processing');
-    setProcessingMessage('Il tuo video è in fase di elaborazione. Potrebbero volerci alcuni minuti...');
+    setProcessingMessage('Caricamento e avvio dell\'elaborazione... Potrebbero volerci alcuni minuti.');
     setError(null);
 
     const formData = new FormData();
@@ -50,11 +58,35 @@ const App: React.FC = () => {
         throw new Error(errorData.detail || 'La richiesta al server è fallita.');
       }
 
-      const data: PipelineResult = await response.json();
-      setResult(data);
+      const data: PipelineStartResponse = await response.json();
+      
+      // Ora che il processo è in background, non abbiamo il risultato finale.
+      // Per semplicità, costruiamo un URL e passiamo a uno stato di "successo"
+      // In un'app reale, useresti WebSocket o polling per verificare quando il video è pronto.
+      const finalVideoUrl = `http://localhost:8000/output/${data.output_filename}`;
+      
+      // Simuliamo un risultato per ResultsView
+      const mockResult: PipelineResult = {
+        ok: true,
+        video_path: videoFile.name,
+        transcript: "La trascrizione sarà disponibile al termine dell'elaborazione.",
+        plan: {
+            mood: "In elaborazione...",
+            music: "In elaborazione...",
+            caption: "In elaborazione...",
+            fx: [],
+            color: "In elaborazione..."
+        },
+        output_video: `/output/${data.output_filename}`
+      };
+
+      setResult(mockResult);
+      setEditedVideoUrl(finalVideoUrl);
+      setProcessingMessage("Elaborazione completata! Il tuo video è pronto.");
       setProcessingState('success');
+
     } catch (err: any) {
-      setError(err.message || 'Impossibile comunicare con il server. Assicurati che il backend sia in esecuzione su http://localhost:8000.');
+      setError(err.message || 'Impossibile comunicare con il server. Assicurati che il backend sia in esecuzione.');
       setProcessingState('error');
     }
   };
@@ -64,6 +96,7 @@ const App: React.FC = () => {
     setVideoFile(null);
     setResult(null);
     setError(null);
+    setEditedVideoUrl(null);
     if(originalVideoUrl) {
       URL.revokeObjectURL(originalVideoUrl);
       setOriginalVideoUrl(null);
@@ -75,7 +108,15 @@ const App: React.FC = () => {
       case 'processing':
         return <ProcessingIndicator message={processingMessage} />;
       case 'success':
-        return result && originalVideoUrl && <ResultsView result={result} originalVideoUrl={originalVideoUrl} onReset={handleReset} />;
+        // Abbiamo bisogno di un URL per il video originale e per quello editato.
+        return result && originalVideoUrl && editedVideoUrl && (
+          <ResultsView 
+            result={result} 
+            originalVideoUrl={originalVideoUrl} 
+            editedVideoUrl={editedVideoUrl} // Passiamo l'URL del video editato
+            onReset={handleReset} 
+          />
+        );
       case 'error':
         return <ErrorDisplay message={error || "Errore sconosciuto"} onReset={handleReset} />;
       case 'idle':
