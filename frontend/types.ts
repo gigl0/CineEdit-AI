@@ -1,4 +1,17 @@
-// src/types.ts
+// frontend/types.ts
+
+export interface NarrativeSection {
+  title: string;
+  summary: string;
+  start_sec: number;
+  end_sec: number;
+  keywords: string[];
+}
+
+export interface AnalysisResult {
+  narrative_sections: NarrativeSection[];
+  full_transcript?: string;
+}
 
 export interface EditPlan {
   mood: string;
@@ -13,5 +26,10 @@ export interface PipelineResult {
   video_path: string;
   transcript: string;
   plan: EditPlan;
-  output_video: string; // Questo sarà un percorso relativo, es: /output/video.mp4
+  output_video: string;
+}
+
+export interface ClipResult {
+  ok: boolean;
+  output_video: string;
 }
