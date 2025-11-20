@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 # --- IMPORT INTERNI (Quelli che mancavano) ---
 from app.db.session import SessionLocal
-from app.db.models.video_job import VideoJob
+from app.models.video_job import VideoJob
 from app.services.episode_analyzer import run_episode_analysis
 from app.services.video_editor import create_social_clip
 from app.core.config import settings
