@@ -3,148 +3,157 @@ import { Header } from './components/Header';
 import { FileUpload } from './components/FileUpload';
 import { ProcessingIndicator } from './components/ProcessingIndicator';
 import { ResultsView } from './components/ResultsView';
-import type { PipelineResult } from './types'; // Assicurati che questo tipo esista
 import { ErrorDisplay } from './components/ErrorDisplay';
+import { AnalysisView } from './components/AnalysisView';
+import { EpisodeEditorView } from './components/EpisodeEditorView';
+import type { AnalysisResult, NarrativeSection, PipelineResult } from './types'; // NOTA: ./types non ../types
 
-// Definiamo un tipo per la risposta iniziale della pipeline
-interface PipelineStartResponse {
-  ok: boolean;
-  message: string;
-  output_filename: string;
-}
-
-type ProcessingState = 'idle' | 'processing' | 'success' | 'error';
+type AppState = 'idle' | 'analyzing' | 'ready_to_edit' | 'editing_clip' | 'clip_ready' | 'error';
 
 const App: React.FC = () => {
-  const [processingState, setProcessingState] = useState<ProcessingState>('idle');
+  console.log("App Rendering..."); // DEBUG
+
+  const [appState, setAppState] = useState<AppState>('idle');
   const [processingMessage, setProcessingMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [originalVideoUrl, setOriginalVideoUrl] = useState<string | null>(null);
-  const [result, setResult] = useState<PipelineResult | null>(null); // Questo ora sarà fittizio
-  const [editedVideoUrl, setEditedVideoUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [finalClipUrl, setFinalClipUrl] = useState<string | null>(null);
+  const [finalResultData, setFinalResultData] = useState<PipelineResult | null>(null);
 
   const handleFileSelect = useCallback((file: File) => {
-    if (originalVideoUrl) {
-      URL.revokeObjectURL(originalVideoUrl);
-    }
+    console.log("File selezionato:", file.name); // DEBUG
+    if (originalVideoUrl) URL.revokeObjectURL(originalVideoUrl);
     setVideoFile(file);
-    const url = URL.createObjectURL(file);
-    setOriginalVideoUrl(url);
-    setProcessingState('idle');
-    setResult(null);
+    setOriginalVideoUrl(URL.createObjectURL(file));
+    setAppState('idle');
     setError(null);
-    setEditedVideoUrl(null);
   }, [originalVideoUrl]);
 
-  const runPipeline = async () => {
+  const uploadAndAnalyze = async () => {
+    console.log("Click su Analizza"); // DEBUG
     if (!videoFile) return;
-
-    setProcessingState('processing');
-    setProcessingMessage('Caricamento e avvio dell\'elaborazione... Potrebbero volerci alcuni minuti.');
-    setError(null);
-
+    setAppState('analyzing');
+    
     const formData = new FormData();
     formData.append('file', videoFile);
 
     try {
-      const response = await fetch('http://localhost:8000/pipeline/full', {
+      // NOTA: Assicurati che il backend sia acceso su localhost:8000
+      const response = await fetch('http://localhost:8000/episodes/upload_and_analyze', {
         method: 'POST',
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Errore sconosciuto dal server.' }));
-        throw new Error(errorData.detail || 'La richiesta al server è fallita.');
-      }
-
-      const data: PipelineStartResponse = await response.json();
-      
-      // Ora che il processo è in background, non abbiamo il risultato finale.
-      // Per semplicità, costruiamo un URL e passiamo a uno stato di "successo"
-      // In un'app reale, useresti WebSocket o polling per verificare quando il video è pronto.
-      const finalVideoUrl = `http://localhost:8000/output/${data.output_filename}`;
-      
-      // Simuliamo un risultato per ResultsView
-      const mockResult: PipelineResult = {
-        ok: true,
-        video_path: videoFile.name,
-        transcript: "La trascrizione sarà disponibile al termine dell'elaborazione.",
-        plan: {
-            mood: "In elaborazione...",
-            music: "In elaborazione...",
-            caption: "In elaborazione...",
-            fx: [],
-            color: "In elaborazione..."
-        },
-        output_video: `/output/${data.output_filename}`
-      };
-
-      setResult(mockResult);
-      setEditedVideoUrl(finalVideoUrl);
-      setProcessingMessage("Elaborazione completata! Il tuo video è pronto.");
-      setProcessingState('success');
-
+      if (!response.ok) throw new Error('Errore connessione Backend');
+      const data = await response.json();
+      console.log("Upload OK, JobID:", data.job_id); // DEBUG
+      setJobId(data.job_id);
     } catch (err: any) {
-      setError(err.message || 'Impossibile comunicare con il server. Assicurati che il backend sia in esecuzione.');
-      setProcessingState('error');
+      console.error("Errore Upload:", err);
+      setError(err.message || "Errore Backend");
+      setAppState('error');
     }
+  };
+
+  const handleAnalysisComplete = (result: AnalysisResult) => {
+    console.log("Analisi completata:", result); // DEBUG
+    setAnalysisResult(result);
+    setAppState('ready_to_edit');
+  };
+  
+  const handleEditSection = async (section: NarrativeSection) => {
+    console.log("Editing sezione:", section.title); // DEBUG
+    setAppState('editing_clip');
+    setProcessingMessage(`Creo clip: ${section.title}...`);
+    
+    // Simulazione attesa
+    setTimeout(() => {
+        const mockUrl = "http://localhost:8000/output/demo.mp4"; 
+        setFinalClipUrl(mockUrl);
+        setFinalResultData({
+            ok: true,
+            video_path: "demo",
+            transcript: "demo text",
+            output_video: mockUrl,
+            plan: { mood: "Epic", music: "Rock", caption: section.title, fx: [], color: "Warm" }
+        });
+        setAppState('clip_ready');
+    }, 2000);
   };
 
   const handleReset = () => {
-    setProcessingState('idle');
+    setAppState('idle');
     setVideoFile(null);
-    setResult(null);
+    setOriginalVideoUrl(null);
+    setJobId(null);
+    setAnalysisResult(null);
+    setFinalClipUrl(null);
     setError(null);
-    setEditedVideoUrl(null);
-    if(originalVideoUrl) {
-      URL.revokeObjectURL(originalVideoUrl);
-      setOriginalVideoUrl(null);
-    }
-  };
-  
-  const renderContent = () => {
-    switch (processingState) {
-      case 'processing':
-        return <ProcessingIndicator message={processingMessage} />;
-      case 'success':
-        // Abbiamo bisogno di un URL per il video originale e per quello editato.
-        return result && originalVideoUrl && editedVideoUrl && (
-          <ResultsView 
-            result={result} 
-            originalVideoUrl={originalVideoUrl} 
-            editedVideoUrl={editedVideoUrl} // Passiamo l'URL del video editato
-            onReset={handleReset} 
-          />
-        );
-      case 'error':
-        return <ErrorDisplay message={error || "Errore sconosciuto"} onReset={handleReset} />;
-      case 'idle':
-      default:
-        return (
-          <FileUpload onFileSelect={handleFileSelect}>
-            {videoFile && (
-              <div className="mt-8 text-center">
-                <p className="text-lg text-slate-300 mb-4">Video selezionato: <span className="font-semibold text-white">{videoFile.name}</span></p>
-                <video src={originalVideoUrl || ''} controls className="max-w-md mx-auto rounded-lg shadow-lg"></video>
-                <button
-                  onClick={runPipeline}
-                  className="mt-6 bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-indigo-700 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 shadow-lg text-xl"
-                >
-                  Avvia Montaggio AI
-                </button>
-              </div>
-            )}
-          </FileUpload>
-        );
-    }
   };
 
+  // RENDERING CONDIZIONALE SEMPLIFICATO
   return (
-    <div className="min-h-screen bg-slate-900 text-white p-4 sm:p-8 flex flex-col items-center">
+    <div className="min-h-screen bg-slate-900 text-white p-4 flex flex-col items-center">
       <Header />
-      <main className="w-full max-w-7xl mt-8">
-        {renderContent()}
+      
+      <main className="w-full max-w-6xl mt-8 border border-slate-800 p-4 rounded bg-slate-800/50">
+        
+        {/* DEBUG STATE VISUALIZER (Rimuovere in produzione) */}
+        <div className="text-xs text-slate-500 mb-4 text-center">
+            Stato: {appState} | File: {videoFile ? 'Sì' : 'No'}
+        </div>
+
+        {appState === 'error' && (
+            <ErrorDisplay message={error || "Errore"} onReset={handleReset} />
+        )}
+
+        {appState === 'analyzing' && jobId && (
+            <AnalysisView jobId={jobId} onAnalysisComplete={handleAnalysisComplete} onError={(e) => setError(e)} />
+        )}
+        
+        {appState === 'ready_to_edit' && analysisResult && originalVideoUrl && (
+            <EpisodeEditorView 
+                originalVideoUrl={originalVideoUrl} 
+                analysisResult={analysisResult} 
+                onEditSection={handleEditSection} 
+                onReset={handleReset} 
+            />
+        )}
+
+        {appState === 'editing_clip' && (
+            <ProcessingIndicator message={processingMessage} />
+        )}
+
+        {appState === 'clip_ready' && finalResultData && originalVideoUrl && finalClipUrl && (
+            <ResultsView 
+                result={finalResultData} 
+                originalVideoUrl={originalVideoUrl} 
+                editedVideoUrl={finalClipUrl} 
+                onReset={handleReset} 
+            />
+        )}
+
+        {/* DEFAULT VIEW: UPLOAD */}
+        {appState === 'idle' && (
+            <FileUpload onFileSelect={handleFileSelect}>
+                {videoFile && (
+                    <div className="mt-6 text-center">
+                        <p className="mb-4 text-green-400">Video caricato: {videoFile.name}</p>
+                        <button 
+                            onClick={uploadAndAnalyze}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded"
+                        >
+                            AVVIA ANALISI
+                        </button>
+                    </div>
+                )}
+            </FileUpload>
+        )}
+
       </main>
     </div>
   );
